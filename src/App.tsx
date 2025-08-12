@@ -9,7 +9,7 @@ import { BrewEntryForm } from './components/BrewEntryForm';
 import { FermentationTracking } from './components/FermentationTracking';
 import { FlavoringFilteringModule } from './components/FlavoringFilteringModule';
 import { CarbonationModule } from './components/CarbonationModule';
-// import { IntervalDataEntry } from './components/IntervalDataEntry';
+import { IntervalDataEntry } from './components/IntervalDataEntry';
 import { BrewHistoryTable } from './components/BrewHistoryTable';
 import { AdvancedAnalytics } from './components/AdvancedAnalyticsPlaceholder';
 import { EquipmentManagement } from './components/EquipmentManagement';
@@ -568,11 +568,11 @@ const AppContent: React.FC = () => {
                   readOnly={!isEditMode}
                 />
                 
-                {/* IntervalDataEntry temporarily disabled during MySQL migration */}
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-yellow-800">📊 Interval Data Entry - Coming Soon</p>
-                  <p className="text-yellow-600 text-sm">Being migrated to MySQL backend</p>
-                </div>
+                <IntervalDataEntry 
+                  batch={currentBatch}
+                  apiKey={userSettings?.openai_api_key}
+                  readOnly={!isEditMode}
+                />
                 
                 <PhotoUpload 
                   batch={currentBatch}

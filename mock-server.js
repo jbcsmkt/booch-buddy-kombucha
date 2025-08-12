@@ -902,6 +902,35 @@ app.post('/api/intervals', (req, res) => {
   res.status(201).json(intervalData);
 });
 
+// Update interval
+app.put('/api/intervals/:id', (req, res) => {
+  console.log('\n=== PUT /api/intervals/:id ===');
+  const intervalId = parseInt(req.params.id);
+  console.log('Updating interval ID:', intervalId);
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
+  
+  const intervalIndex = mockIntervals.findIndex(interval => interval.id === intervalId);
+  
+  if (intervalIndex === -1) {
+    console.log('Interval not found');
+    return res.status(404).json({ error: 'Interval not found' });
+  }
+  
+  // Update the interval
+  const updatedInterval = {
+    ...mockIntervals[intervalIndex],
+    ...req.body,
+    updated_at: new Date().toISOString()
+  };
+  
+  mockIntervals[intervalIndex] = updatedInterval;
+  
+  console.log('Updated interval:', JSON.stringify(updatedInterval, null, 2));
+  console.log('=== END PUT intervals ===\n');
+  
+  res.json(updatedInterval);
+});
+
 app.post('/api/ai/analyze-progress/:batchId', (req, res) => {
   const batchId = req.params.batchId;
   const data = req.body;
