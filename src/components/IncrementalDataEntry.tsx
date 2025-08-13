@@ -106,24 +106,26 @@ export const IncrementalDataEntry: React.FC<IncrementalDataEntryProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <TestTube className="text-brewing-amber" size={24} />
-            <h2 className="text-xl font-bold text-gray-800">
-              Add Progress Data - Batch {batch.batchNumber}
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+          <div className="flex items-center gap-2 min-w-0">
+            <TestTube className="text-brewing-amber flex-shrink-0" size={20} />
+            <h2 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
+              <span className="hidden sm:inline">Add Progress Data - </span>
+              <span className="sm:hidden">Progress - </span>
+              Batch {batch.batchNumber}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors p-1 flex-shrink-0"
           >
             <X size={24} />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
           {/* Recording Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -133,12 +135,12 @@ export const IncrementalDataEntry: React.FC<IncrementalDataEntryProps> = ({
               type="date"
               value={data.recorded_at}
               onChange={(e) => handleInputChange('recorded_at', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brewing-amber focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brewing-amber focus:border-transparent text-base"
             />
           </div>
 
           {/* Measurements */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <TestTube size={16} className="inline mr-1" />
@@ -188,7 +190,7 @@ export const IncrementalDataEntry: React.FC<IncrementalDataEntryProps> = ({
           </div>
 
           {/* Sensory Notes */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <FileText size={16} className="inline mr-1" />
@@ -293,27 +295,29 @@ export const IncrementalDataEntry: React.FC<IncrementalDataEntryProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+        <div className="flex items-center justify-end gap-3 p-4 sm:p-6 border-t border-gray-200">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors text-sm sm:text-base"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={isAnalyzing}
-            className="bg-brewing-success hover:bg-brewing-darkGreen text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-brewing-success hover:bg-brewing-darkGreen text-white px-4 sm:px-6 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
           >
             {isAnalyzing ? (
               <>
                 <Brain className="animate-pulse" size={16} />
-                AI Analyzing...
+                <span className="hidden sm:inline">AI Analyzing...</span>
+                <span className="sm:hidden">Analyzing...</span>
               </>
             ) : (
               <>
                 <Save size={16} />
-                Save & Analyze
+                <span className="hidden sm:inline">Save & Analyze</span>
+                <span className="sm:hidden">Save</span>
               </>
             )}
           </button>

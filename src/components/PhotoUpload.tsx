@@ -35,10 +35,21 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ batch, readOnly = fals
 
   const loadPhotos = async () => {
     try {
-      const data = await batchPhotoService.getByBatchId(batch.id);
-      setPhotos(data as any);
+      console.log('Loading photos for batch:', batch.id);
+      const response = await fetch(`http://localhost:5000/api/batches/${batch.id}/photos`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load photos: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Loaded photos:', data);
+      setPhotos(data);
     } catch (error) {
       console.error('Failed to load photos:', error);
+      setPhotos([]);
     }
   };
 
@@ -52,56 +63,72 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ batch, readOnly = fals
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
+    // Validate file size (max 10MB to match backend)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
       return;
     }
 
     setIsUploading(true);
     try {
-      // In a real implementation, you would upload to a cloud storage service
-      // For this demo, we'll use a data URL (not recommended for production)
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const photoUrl = e.target?.result as string;
-        
-        const photoData: any = {
-          batch_id: batch.id,
-          photo_url: photoUrl,
-          caption: uploadData.caption,
-          phase: uploadData.photo_type
-        };
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('photo', file);
+      formData.append('photo_type', uploadData.photo_type);
+      formData.append('caption', uploadData.caption);
 
-        try {
-          await batchPhotoService.create(photoData);
-          await loadPhotos();
-          setUploadData({ photo_type: 'general', caption: '' });
-          
-          // Reset file input
-          event.target.value = '';
-        } catch (error) {
-          console.error('Failed to save photo:', error);
-          alert('Failed to save photo');
-        }
-      };
-      reader.readAsDataURL(file);
+      console.log('Uploading photo for batch:', batch.id);
+      
+      // Upload to backend
+      const response = await fetch(`http://localhost:5000/api/batches/${batch.id}/photos`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Upload failed: ${response.status} ${errorText}`);
+      }
+
+      const newPhoto = await response.json();
+      console.log('Photo uploaded successfully:', newPhoto);
+      
+      // Reload photos from server
+      await loadPhotos();
+      setUploadData({ photo_type: 'general', caption: '' });
+      
+      // Reset the file input
+      event.target.value = '';
+      
+      alert('Photo uploaded successfully!');
     } catch (error) {
-      console.error('Failed to upload photo:', error);
-      alert('Failed to upload photo');
+      console.error('Upload failed:', error);
+      alert(`Upload failed: ${error.message}`);
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleDeletePhoto = async (id: string) => {
+  const handleDeletePhoto = async (id: string | number) => {
     if (window.confirm('Are you sure you want to delete this photo?')) {
       try {
-        await batchPhotoService.delete(id);
+        console.log('Deleting photo:', id);
+        const response = await fetch(`http://localhost:5000/api/photos/${id}`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to delete photo: ${response.status}`);
+        }
+        
+        console.log('Photo deleted successfully');
         await loadPhotos();
+        alert('Photo deleted successfully!');
       } catch (error) {
         console.error('Failed to delete photo:', error);
-        alert('Failed to delete photo');
+        alert(`Failed to delete photo: ${error.message}`);
       }
     }
   };

@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { Beaker, Plus, User, Settings, LogOut, MessageSquare, BarChart3, Wrench, BookOpen, TrendingUp } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginForm } from './components/LoginForm';
-import { SettingsModal } from './components/SettingsModal';
-import { AIChat } from './components/AIChat';
 import { ChatProvider } from './contexts/ChatContext';
 import { BrewEntryForm } from './components/BrewEntryForm';
 import { FermentationTracking } from './components/FermentationTracking';
@@ -11,19 +9,31 @@ import { FlavoringFilteringModule } from './components/FlavoringFilteringModule'
 import { CarbonationModule } from './components/CarbonationModule';
 import { IntervalDataEntry } from './components/IntervalDataEntry';
 import { BrewHistoryTable } from './components/BrewHistoryTable';
-import { AdvancedAnalytics } from './components/AdvancedAnalyticsPlaceholder';
-import { EquipmentManagement } from './components/EquipmentManagement';
-import { RecipeTemplates } from './components/RecipeTemplates';
 import { PhotoUpload } from './components/PhotoUpload';
 import { ReminderSystem } from './components/ReminderSystem';
 import { AIBrewingTips } from './components/AIBrewingTips';
-import { AITroubleshooter } from './components/AITroubleshooter';
 import { IncrementalDataEntry, IncrementalData } from './components/IncrementalDataEntry';
-import { ProgressHistory } from './components/ProgressHistory';
+
+// Lazy load heavy components
+const SettingsModal = React.lazy(() => import('./components/SettingsModal').then(m => ({ default: m.SettingsModal })));
+const AIChat = React.lazy(() => import('./components/AIChat').then(m => ({ default: m.AIChat })));
+const AdvancedAnalytics = React.lazy(() => import('./components/AdvancedAnalyticsPlaceholder').then(m => ({ default: m.AdvancedAnalytics })));
+const EquipmentManagement = React.lazy(() => import('./components/EquipmentManagement').then(m => ({ default: m.EquipmentManagement })));
+const RecipeTemplates = React.lazy(() => import('./components/RecipeTemplates').then(m => ({ default: m.RecipeTemplates })));
+const AITroubleshooter = React.lazy(() => import('./components/AITroubleshooter').then(m => ({ default: m.AITroubleshooter })));
+const ProgressHistory = React.lazy(() => import('./components/ProgressHistory').then(m => ({ default: m.ProgressHistory })));
 import { batchService, userSettingsService } from './services/batchServiceWrapper';
 import { BatchData, UserSettings } from './types/brewing';
 import { generateReminders, getActiveReminders } from './utils/reminders';
 import { calculateProgressPercentage, getBatchStatus } from './utils/calculations';
+
+// Loading component for Suspense fallback
+const LoadingSpinner: React.FC<{ text?: string }> = ({ text = "Loading..." }) => (
+  <div className="flex items-center justify-center py-8">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brewing-amber mr-3"></div>
+    <span className="text-gray-600">{text}</span>
+  </div>
+);
 
 // Simple test component to verify React is working
 const TestComponent: React.FC = () => {
@@ -342,16 +352,16 @@ const AppContent: React.FC = () => {
         <div className="bg-white shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
-              <div className="flex items-center gap-4">
-                <Beaker className="text-brewing-amber" size={32} />
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Kombucha Brew Tracker</h1>
-                  <p className="text-sm text-gray-600">Professional Brewing Management System</p>
+              <div className="flex items-center gap-2 sm:gap-4">
+                <Beaker className="text-brewing-amber" size={24} />
+                <div className="min-w-0">
+                  <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">Kombucha Brew Tracker</h1>
+                  <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Professional Brewing Management System</p>
                 </div>
               </div>
               
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="flex items-center gap-1 sm:gap-4">
+                <div className="hidden md:flex items-center gap-2 text-sm text-gray-600">
                   <User size={16} />
                   <span>{user.username}</span>
                   <span className="px-2 py-1 rounded-full text-xs font-medium bg-brewing-success text-white">
@@ -361,34 +371,35 @@ const AppContent: React.FC = () => {
                 
                 <button 
                   onClick={() => setShowChat(true)}
-                  className="text-gray-600 hover:text-brewing-amber transition-colors p-2"
+                  className="text-gray-600 hover:text-brewing-amber transition-colors p-1 sm:p-2"
                   title="AI Chat Assistant"
                 >
-                  <MessageSquare size={20} />
+                  <MessageSquare size={18} />
                 </button>
                 
                 <button 
                   onClick={() => setShowSettings(true)}
-                  className="text-gray-600 hover:text-brewing-amber transition-colors p-2"
+                  className="text-gray-600 hover:text-brewing-amber transition-colors p-1 sm:p-2"
                   title="Settings"
                 >
-                  <Settings size={20} />
+                  <Settings size={18} />
                 </button>
                 
                 <button 
                   onClick={logout}
-                  className="text-gray-600 hover:text-red-600 transition-colors p-2"
+                  className="text-gray-600 hover:text-red-600 transition-colors p-1 sm:p-2"
                   title="Logout"
                 >
-                  <LogOut size={20} />
+                  <LogOut size={18} />
                 </button>
                 
                 <button 
                   onClick={handleCreateBatch}
-                  className="bg-brewing-amber hover:bg-brewing-copper text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                  className="bg-brewing-amber hover:bg-brewing-copper text-white px-2 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 transition-colors text-sm sm:text-base"
                 >
                   <Plus size={16} />
-                  New Batch
+                  <span className="hidden sm:inline">New Batch</span>
+                  <span className="sm:hidden">New</span>
                 </button>
               </div>
             </div>
@@ -399,27 +410,28 @@ const AppContent: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Navigation Tabs */}
           <div className="mb-6">
-            <nav className="flex space-x-8">
+            <nav className="flex space-x-4 sm:space-x-8 overflow-x-auto">
               <button
                 onClick={() => setActiveView('dashboard')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeView === 'dashboard'
                     ? 'border-brewing-amber text-brewing-amber'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <Beaker size={16} className="inline mr-2" />
-                Dashboard
+                <Beaker size={16} className="inline mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Dashboard</span>
+                <span className="sm:hidden">Home</span>
               </button>
               <button
                 onClick={() => setActiveView('progress')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeView === 'progress'
                     ? 'border-brewing-amber text-brewing-amber'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <TrendingUp size={16} className="inline mr-2" />
+                <TrendingUp size={16} className="inline mr-1 sm:mr-2" />
                 Progress
               </button>
             </nav>
@@ -447,7 +459,7 @@ const AppContent: React.FC = () => {
                   <p className="text-gray-600 mb-6">
                     Your professional brewing management system is ready.
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="bg-brewing-amber bg-opacity-10 p-4 rounded-lg">
                       <h3 className="font-semibold text-brewing-copper mb-2">Track Batches</h3>
                       <p className="text-sm text-gray-600">Monitor fermentation progress</p>
@@ -456,7 +468,7 @@ const AppContent: React.FC = () => {
                       <h3 className="font-semibold text-brewing-darkGreen mb-2">AI Analysis</h3>
                       <p className="text-sm text-gray-600">Get intelligent brewing advice</p>
                     </div>
-                    <div className="bg-brewing-gold bg-opacity-10 p-4 rounded-lg">
+                    <div className="bg-brewing-gold bg-opacity-10 p-4 rounded-lg sm:col-span-2 lg:col-span-1">
                       <h3 className="font-semibold text-brewing-copper mb-2">Analytics</h3>
                       <p className="text-sm text-gray-600">Analyze brewing performance</p>
                     </div>
@@ -594,10 +606,12 @@ const AppContent: React.FC = () => {
 
             {/* Progress History View */}
             {activeView === 'progress' && (
-              <ProgressHistory 
-                batches={batches}
-                showAllBatches={true}
-              />
+              <Suspense fallback={<LoadingSpinner text="Loading progress history..." />}>
+                <ProgressHistory 
+                  batches={batches}
+                  showAllBatches={true}
+                />
+              </Suspense>
             )}
 
             {/* Analytics View */}
@@ -633,24 +647,30 @@ const AppContent: React.FC = () => {
         </div>
         
         {/* Modals */}
-        <SettingsModal 
-          isOpen={showSettings} 
-          onClose={() => setShowSettings(false)} 
-        />
+        <Suspense fallback={<LoadingSpinner text="Loading settings..." />}>
+          <SettingsModal 
+            isOpen={showSettings} 
+            onClose={() => setShowSettings(false)} 
+          />
+        </Suspense>
         
-        <AIChat 
-          isOpen={showChat} 
-          onClose={() => setShowChat(false)}
-        />
+        <Suspense fallback={<LoadingSpinner text="Loading AI chat..." />}>
+          <AIChat 
+            isOpen={showChat} 
+            onClose={() => setShowChat(false)}
+          />
+        </Suspense>
 
         {showAITroubleshooter && troubleshootBatch && (
-          <AITroubleshooter
-            batch={troubleshootBatch}
-            onClose={() => {
-              setShowAITroubleshooter(false);
-              setTroubleshootBatch(null);
-            }}
-          />
+          <Suspense fallback={<LoadingSpinner text="Loading AI troubleshooter..." />}>
+            <AITroubleshooter
+              batch={troubleshootBatch}
+              onClose={() => {
+                setShowAITroubleshooter(false);
+                setTroubleshootBatch(null);
+              }}
+            />
+          </Suspense>
         )}
 
         <IncrementalDataEntry

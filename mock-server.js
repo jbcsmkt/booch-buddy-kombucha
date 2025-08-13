@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -15,6 +18,41 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Multer configuration for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const fileExtension = path.extname(file.originalname);
+    cb(null, `batch-photo-${uniqueSuffix}${fileExtension}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
+});
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(uploadsDir));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -35,6 +73,9 @@ const mockUser = {
 
 const mockToken = 'mock-jwt-token-for-preview';
 
+// Track current logged-in user
+let currentLoggedInUser = null;
+
 // In-memory user storage for mock server
 let mockUsers = [
   {
@@ -45,33 +86,11 @@ let mockUsers = [
     last_login: new Date().toISOString(), password_changed_at: '2024-01-01T00:00:00Z'
   },
   {
-    id: 2, username: 'brewer1', email: 'brewer1@example.com', firstName: 'John', lastName: 'Brewer',
-    role: 'user', is_active: true, email_verified: true, failed_login_attempts: 0, locked_until: null,
-    department: 'Production', phone: '+1-555-0002', timezone: 'America/Los_Angeles', language: 'en',
-    two_factor_enabled: false, created_at: '2024-01-15T10:30:00Z', updated_at: '2024-01-20T14:45:00Z',
-    last_login: '2024-01-25T09:15:00Z', password_changed_at: '2024-01-15T10:30:00Z'
-  },
-  {
-    id: 3, username: 'testuser', email: 'test@example.com', firstName: 'Test', lastName: 'User',
-    role: 'user', is_active: false, email_verified: false, failed_login_attempts: 3, locked_until: null,
-    department: 'Quality Assurance', phone: '+1-555-0003', timezone: 'UTC', language: 'en',
-    two_factor_enabled: false, created_at: '2024-02-01T08:00:00Z', updated_at: '2024-02-10T16:30:00Z',
-    last_login: null, password_changed_at: '2024-02-01T08:00:00Z'
-  },
-  {
-    id: 4, username: 'moderator1', email: 'mod@example.com', firstName: 'Jane', lastName: 'Moderator',
-    role: 'moderator', is_active: true, email_verified: true, failed_login_attempts: 0, locked_until: null,
-    department: 'Quality Control', phone: '+1-555-0004', timezone: 'America/Chicago', language: 'en',
-    two_factor_enabled: true, created_at: '2024-01-20T15:45:00Z', updated_at: '2024-02-01T12:30:00Z',
-    last_login: '2024-02-05T14:20:00Z', password_changed_at: '2024-01-20T15:45:00Z'
-  },
-  {
-    id: 5, username: 'lockeduser', email: 'locked@example.com', firstName: 'Locked', lastName: 'Account',
-    role: 'user', is_active: true, email_verified: true, failed_login_attempts: 5, 
-    locked_until: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-    department: 'Research', phone: '+1-555-0005', timezone: 'America/Denver', language: 'en',
-    two_factor_enabled: false, created_at: '2024-01-10T09:15:00Z', updated_at: new Date().toISOString(),
-    last_login: '2024-01-30T16:45:00Z', password_changed_at: '2024-01-10T09:15:00Z'
+    id: 2, username: 'jbcsmkt', email: 'jbcsmkt@boochbuddy.com', firstName: 'JB', lastName: 'Admin',
+    role: 'admin', is_active: true, email_verified: true, failed_login_attempts: 0, locked_until: null,
+    department: 'Administration', phone: '+1-555-0002', timezone: 'America/New_York', language: 'en',
+    two_factor_enabled: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    last_login: new Date().toISOString(), password_changed_at: new Date().toISOString()
   }
 ];
 
@@ -93,16 +112,37 @@ app.post('/api/auth/login', (req, res) => {
   
   // Accept any username/password for preview
   if (username && password) {
-    // Set secure httpOnly cookie to match our new authentication system
-    res.cookie('auth_token', mockToken, {
-      httpOnly: true,
-      secure: false, // false for development
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
+    // Find user in mockUsers array or create if not exists
+    let user = mockUsers.find(u => u.username === username);
     
-    // Send only user data, no token in response body
-    res.json({ user: mockUser });
+    if (!user) {
+      // If user doesn't exist and it's jbcsmkt or admin, use the existing one
+      // Otherwise, don't create new users automatically
+      if (username === 'jbcsmkt' || username === 'admin') {
+        user = mockUsers.find(u => u.username === username);
+      }
+    }
+    
+    if (user) {
+      // Update last login
+      user.last_login = new Date().toISOString();
+      
+      // Track current logged-in user
+      currentLoggedInUser = user;
+      
+      // Set secure httpOnly cookie to match our new authentication system
+      res.cookie('auth_token', mockToken, {
+        httpOnly: true,
+        secure: false, // false for development
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+      
+      // Send only user data, no token in response body
+      res.json({ user });
+    } else {
+      res.status(401).json({ error: 'Invalid credentials' });
+    }
   } else {
     res.status(400).json({ error: 'Username and password are required' });
   }
@@ -121,10 +161,13 @@ app.post('/api/auth/register', (req, res) => {
 });
 
 app.get('/api/auth/me', (req, res) => {
-  res.json({ user: mockUser });
+  // Return the current logged-in user or default to admin
+  const user = currentLoggedInUser || mockUsers[0];
+  res.json({ user });
 });
 
 app.post('/api/auth/logout', (req, res) => {
+  currentLoggedInUser = null;
   res.clearCookie('auth_token');
   res.json({ message: 'Logged out successfully' });
 });
@@ -689,38 +732,51 @@ let mockBatches = [
   {
     id: 1,
     batchNumber: 'BB-001',
-    startDate: new Date().toISOString().split('T')[0],
-    brewSize: 4.0,
-    teaType: 'Green Tea',
-    sugarType: 'Cane Sugar',
-    startPH: 4.5,
-    startBrix: 8.2,
+    startDate: '2025-08-12',
+    brewSize: 5.5,
+    teaType: 'Custom Blend',
+    sugarType: 'Cane',
+    startPH: 3.6,
+    startBrix: 10,
     status: 'in-progress',
-    progressPercentage: 65,
+    progressPercentage: 25,
     lastEntryDate: new Date().toISOString(),
     starterVolume: 16,
     teaWeight: 2,
     waterVolume: 1,
     sugarAmount: 1,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    teaBlendNotes: '50/50',
+    teaSteepingTemp: 190,
+    teaSteepingTime: 25,
+    teaAmountGrams: 11,
+    starterTea: 256,
+    sugarUsed: 7
   },
   {
     id: 2,
     batchNumber: 'BB-002',
-    startDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 5 days ago
-    brewSize: 2.0,
-    teaType: 'Black Tea',
-    sugarType: 'White Sugar',
-    startPH: 4.3,
-    startBrix: 7.8,
-    status: 'ready',
-    progressPercentage: 100,
+    startDate: '2025-08-12',
+    brewSize: 7,
+    teaType: 'Custom Blend',
+    sugarType: 'Cane',
+    startPH: 2.8,
+    startBrix: 8.5,
+    status: 'in-progress',
+    progressPercentage: 25,
     lastEntryDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     starterVolume: 8,
     teaWeight: 1,
     waterVolume: 0.5,
     sugarAmount: 0.5,
-    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    teaBlendNotes: '50/50',
+    teaSteepingTemp: 190,
+    teaSteepingTime: 25,
+    teaAmountGrams: 130,
+    starterTea: 128,
+    sugarUsed: 7,
+    tasteProfile: 'Sour + Balanced'
   }
 ];
 
@@ -881,6 +937,29 @@ let mockIntervals = [];
 
 // In-memory AI analysis storage
 let mockAIAnalyses = [];
+
+// In-memory photo storage
+let mockPhotos = [];
+
+// In-memory chat conversations and messages storage
+let mockConversations = [
+  {
+    id: 1,
+    user_id: '1',
+    title: 'Brewing Tips Discussion',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
+];
+let mockMessages = [
+  {
+    id: 1,
+    conversation_id: 1,
+    role: 'assistant',
+    content: 'Hello! I\'m your AI brewing assistant. How can I help you with your kombucha brewing today?',
+    created_at: new Date().toISOString()
+  }
+];
 
 app.post('/api/intervals', (req, res) => {
   console.log('\n=== POST /api/intervals ===');
@@ -1048,44 +1127,57 @@ app.get('/api/measurements/batch/:batchId', (req, res) => {
 
 // Chat endpoints
 app.get('/api/chat/conversations', (req, res) => {
-  res.json([
-    {
-      id: 1,
-      user_id: '1',
-      title: 'Brewing Tips Discussion',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }
-  ]);
+  console.log('GET /api/chat/conversations - returning', mockConversations.length, 'conversations');
+  res.json(mockConversations);
 });
 
 app.post('/api/chat/conversations', (req, res) => {
   const { title, batch_id } = req.body;
-  res.json({
+  console.log('POST /api/chat/conversations - creating new conversation:', title);
+  
+  const newConversation = {
     id: Date.now(),
     user_id: '1',
     batch_id: batch_id || null,
     title: title || 'New Conversation',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
-  });
+  };
+  
+  mockConversations.unshift(newConversation);
+  console.log('Created conversation:', newConversation);
+  console.log('Total conversations:', mockConversations.length);
+  
+  res.json(newConversation);
 });
 
 app.get('/api/chat/conversations/:id/messages', (req, res) => {
-  res.json([
-    {
-      id: 1,
-      conversation_id: parseInt(req.params.id),
+  const conversationId = parseInt(req.params.id);
+  console.log('GET /api/chat/conversations/:id/messages - conversation:', conversationId);
+  
+  let messages = mockMessages.filter(m => m.conversation_id === conversationId);
+  
+  // If no messages exist for this conversation, add a welcome message
+  if (messages.length === 0 && mockConversations.find(c => c.id === conversationId)) {
+    const welcomeMessage = {
+      id: Date.now(),
+      conversation_id: conversationId,
       role: 'assistant',
       content: 'Hello! I\'m your AI brewing assistant. How can I help you with your kombucha brewing today?',
       created_at: new Date().toISOString()
-    }
-  ]);
+    };
+    mockMessages.push(welcomeMessage);
+    messages.push(welcomeMessage);
+  }
+  
+  console.log('Returning', messages.length, 'messages for conversation', conversationId);
+  res.json(messages);
 });
 
 app.post('/api/chat/conversations/:id/messages', (req, res) => {
   const { content } = req.body;
   const conversationId = parseInt(req.params.id);
+  console.log('POST /api/chat/conversations/:id/messages - conversation:', conversationId, 'content:', content);
   
   const userMessage = {
     id: Date.now(),
@@ -1099,14 +1191,37 @@ app.post('/api/chat/conversations/:id/messages', (req, res) => {
     id: Date.now() + 1,
     conversation_id: conversationId,
     role: 'assistant',
-    content: `Thanks for your message: "${content}". This is a mock response from the AI assistant. In a real implementation, this would be processed by an AI service like OpenAI.`,
+    content: `Thanks for your message about: "${content}". For kombucha brewing, it's important to maintain proper pH levels (2.5-3.5) and temperature (75-85°F) for optimal fermentation. Would you like specific guidance on this topic?`,
     created_at: new Date().toISOString()
   };
   
+  // Store messages
+  mockMessages.push(userMessage, assistantMessage);
+  
+  // Update conversation's updated_at
+  const conversation = mockConversations.find(c => c.id === conversationId);
+  if (conversation) {
+    conversation.updated_at = new Date().toISOString();
+  }
+  
+  console.log('Added 2 new messages. Total messages:', mockMessages.length);
   res.json([userMessage, assistantMessage]);
 });
 
 app.delete('/api/chat/conversations/:id', (req, res) => {
+  const conversationId = parseInt(req.params.id);
+  console.log('DELETE /api/chat/conversations/:id - conversation:', conversationId);
+  
+  // Remove conversation
+  const index = mockConversations.findIndex(c => c.id === conversationId);
+  if (index !== -1) {
+    mockConversations.splice(index, 1);
+  }
+  
+  // Remove associated messages
+  mockMessages = mockMessages.filter(m => m.conversation_id !== conversationId);
+  
+  console.log('Deleted conversation. Remaining conversations:', mockConversations.length);
   res.json({ message: 'Conversation deleted successfully' });
 });
 
@@ -1229,6 +1344,102 @@ app.get('/api/ai/status', (req, res) => {
       ? 'AI service is ready with OpenAI integration' 
       : 'Running in mock mode - add OPENAI_API_KEY for real AI responses'
   });
+});
+
+// Photo Upload API Endpoints
+
+// Upload photo for a batch
+app.post('/api/batches/:batchId/photos', upload.single('photo'), (req, res) => {
+  console.log('\n=== POST /api/batches/:batchId/photos ===');
+  const batchId = parseInt(req.params.batchId);
+  
+  if (!req.file) {
+    return res.status(400).json({ error: 'No photo file provided' });
+  }
+
+  console.log('File uploaded:', req.file.filename);
+  console.log('Upload data:', req.body);
+
+  const photoData = {
+    id: Date.now(),
+    batch_id: batchId,
+    photo_url: `http://localhost:5000/uploads/${req.file.filename}`,
+    filename: req.file.filename,
+    original_name: req.file.originalname,
+    photo_type: req.body.photo_type || 'general',
+    caption: req.body.caption || '',
+    file_size: req.file.size,
+    mime_type: req.file.mimetype,
+    created_at: new Date().toISOString()
+  };
+
+  mockPhotos.push(photoData);
+  console.log('Photo saved:', photoData);
+  console.log('Total photos stored:', mockPhotos.length);
+
+  res.json(photoData);
+});
+
+// Get photos for a specific batch
+app.get('/api/batches/:batchId/photos', (req, res) => {
+  console.log('\n=== GET /api/batches/:batchId/photos ===');
+  const batchId = parseInt(req.params.batchId);
+  
+  const batchPhotos = mockPhotos.filter(photo => photo.batch_id === batchId);
+  console.log(`Found ${batchPhotos.length} photos for batch ${batchId}`);
+  
+  res.json(batchPhotos);
+});
+
+// Get specific photo
+app.get('/api/photos/:photoId', (req, res) => {
+  console.log('\n=== GET /api/photos/:photoId ===');
+  const photoId = parseInt(req.params.photoId);
+  
+  const photo = mockPhotos.find(p => p.id === photoId);
+  if (!photo) {
+    return res.status(404).json({ error: 'Photo not found' });
+  }
+  
+  res.json(photo);
+});
+
+// Delete photo
+app.delete('/api/photos/:photoId', (req, res) => {
+  console.log('\n=== DELETE /api/photos/:photoId ===');
+  const photoId = parseInt(req.params.photoId);
+  
+  const photoIndex = mockPhotos.findIndex(p => p.id === photoId);
+  if (photoIndex === -1) {
+    return res.status(404).json({ error: 'Photo not found' });
+  }
+
+  const photo = mockPhotos[photoIndex];
+  
+  // Delete file from disk
+  try {
+    const filePath = path.join(uploadsDir, photo.filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log('File deleted from disk:', photo.filename);
+    }
+  } catch (error) {
+    console.error('Error deleting file:', error);
+  }
+
+  // Remove from memory
+  mockPhotos.splice(photoIndex, 1);
+  console.log('Photo deleted:', photoId);
+  console.log('Total photos remaining:', mockPhotos.length);
+
+  res.json({ message: 'Photo deleted successfully' });
+});
+
+// Get all photos (for admin)
+app.get('/api/photos', (req, res) => {
+  console.log('\n=== GET /api/photos ===');
+  console.log(`Returning all ${mockPhotos.length} photos`);
+  res.json(mockPhotos);
 });
 
 // Catch-all for unimplemented endpoints
