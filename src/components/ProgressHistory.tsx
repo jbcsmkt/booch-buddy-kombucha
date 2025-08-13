@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, TrendingUp, Brain, TestTube, Thermometer, Droplets, Eye, Nose, Coffee, Clock, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, TrendingUp, Brain, TestTube, Thermometer, Droplets, Eye, Nose, Coffee, Clock, ArrowRight, ChevronDown, ChevronUp, Edit3, Trash2 } from 'lucide-react';
 import { BatchData, BatchInterval, AIAnalysis } from '../types/brewing';
 import { aiAnalysisService } from '../services/aiAnalysisService';
 
@@ -23,6 +23,8 @@ export const ProgressHistory: React.FC<ProgressHistoryProps> = ({
   const [loading, setLoading] = useState(true);
   const [selectedBatch, setSelectedBatch] = useState<string | number | 'all'>(selectedBatchId || 'all');
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+  const [editingInterval, setEditingInterval] = useState<IntervalWithAnalysis | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     loadProgressData();
@@ -120,6 +122,69 @@ export const ProgressHistory: React.FC<ProgressHistoryProps> = ({
       return notes.length > 0 ? notes.join(', ') : 'None';
     }
     return notes;
+  };
+
+  const handleEditInterval = (interval: IntervalWithAnalysis) => {
+    setEditingInterval(interval);
+  };
+
+  const handleSaveEdit = async (updatedInterval: Partial<BatchInterval>) => {
+    if (!editingInterval) return;
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/intervals/${editingInterval.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(updatedInterval)
+      });
+
+      if (response.ok) {
+        const savedInterval = await response.json();
+        // Update the interval in the state
+        setIntervals(prev => prev.map(interval => 
+          interval.id === editingInterval.id 
+            ? { ...interval, ...savedInterval }
+            : interval
+        ));
+        setEditingInterval(null);
+        console.log('Progress entry updated successfully');
+      } else {
+        throw new Error('Failed to update progress entry');
+      }
+    } catch (error) {
+      console.error('Error updating progress entry:', error);
+      alert('Failed to update progress entry. Please try again.');
+    }
+  };
+
+  const handleDeleteInterval = async (intervalId: string) => {
+    if (!confirm('Are you sure you want to delete this progress entry?')) {
+      return;
+    }
+
+    setIsDeleting(intervalId);
+    try {
+      const response = await fetch(`http://localhost:5000/api/intervals/${intervalId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        // Remove the interval from the state
+        setIntervals(prev => prev.filter(interval => interval.id !== intervalId));
+        console.log('Progress entry deleted successfully');
+      } else {
+        throw new Error('Failed to delete progress entry');
+      }
+    } catch (error) {
+      console.error('Error deleting progress entry:', error);
+      alert('Failed to delete progress entry. Please try again.');
+    } finally {
+      setIsDeleting(null);
+    }
   };
 
   if (loading) {
@@ -259,6 +324,28 @@ export const ProgressHistory: React.FC<ProgressHistoryProps> = ({
                       </div>
                       
                       <div className="flex items-center gap-2">
+                        {/* Edit and Delete buttons */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditInterval(interval);
+                          }}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors rounded"
+                          title="Edit entry"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteInterval(interval.id);
+                          }}
+                          disabled={isDeleting === interval.id}
+                          className="p-1 text-gray-400 hover:text-red-600 transition-colors rounded disabled:opacity-50"
+                          title="Delete entry"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                         {hasAnalysis && (
                           <Brain className="text-brewing-success" size={16} />
                         )}
@@ -371,6 +458,144 @@ export const ProgressHistory: React.FC<ProgressHistoryProps> = ({
               );
             })
         )}
+      </div>
+
+      {/* Edit Modal */}
+      {editingInterval && (
+        <EditIntervalModal
+          interval={editingInterval}
+          onSave={handleSaveEdit}
+          onCancel={() => setEditingInterval(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+// Edit Modal Component
+interface EditIntervalModalProps {
+  interval: IntervalWithAnalysis;
+  onSave: (updatedInterval: Partial<BatchInterval>) => void;
+  onCancel: () => void;
+}
+
+const EditIntervalModal: React.FC<EditIntervalModalProps> = ({ interval, onSave, onCancel }) => {
+  const [formData, setFormData] = useState({
+    recorded_at: interval.recorded_at,
+    ph_level: interval.ph_level || '',
+    brix_level: interval.brix_level || '',
+    temperature: interval.temperature || '',
+    taste_notes: interval.taste_notes || '',
+    visual_notes: interval.visual_notes || '',
+    aroma_notes: interval.aroma_notes || ''
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updatedData = {
+      ...formData,
+      ph_level: formData.ph_level ? parseFloat(formData.ph_level as string) : undefined,
+      brix_level: formData.brix_level ? parseFloat(formData.brix_level as string) : undefined,
+      temperature: formData.temperature ? parseFloat(formData.temperature as string) : undefined
+    };
+    onSave(updatedData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h3 className="text-lg font-semibold mb-4">Edit Progress Entry</h3>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <input
+              type="date"
+              value={formData.recorded_at}
+              onChange={(e) => setFormData(prev => ({ ...prev, recorded_at: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brewing-amber focus:border-transparent"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">pH Level</label>
+              <input
+                type="number"
+                step="0.1"
+                value={formData.ph_level}
+                onChange={(e) => setFormData(prev => ({ ...prev, ph_level: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brewing-amber focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Brix Level</label>
+              <input
+                type="number"
+                step="0.1"
+                value={formData.brix_level}
+                onChange={(e) => setFormData(prev => ({ ...prev, brix_level: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brewing-amber focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Temperature</label>
+              <input
+                type="number"
+                step="0.1"
+                value={formData.temperature}
+                onChange={(e) => setFormData(prev => ({ ...prev, temperature: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brewing-amber focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Taste Notes</label>
+            <textarea
+              value={formData.taste_notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, taste_notes: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brewing-amber focus:border-transparent"
+              rows={2}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Visual Notes</label>
+            <textarea
+              value={formData.visual_notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, visual_notes: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brewing-amber focus:border-transparent"
+              rows={2}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Aroma Notes</label>
+            <textarea
+              value={formData.aroma_notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, aroma_notes: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brewing-amber focus:border-transparent"
+              rows={2}
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="submit"
+              className="flex-1 bg-brewing-amber text-white py-2 px-4 rounded-md hover:bg-brewing-copper transition-colors"
+            >
+              Save Changes
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

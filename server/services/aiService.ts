@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat';
-import type { User } from '../../src/types/auth';
-import type { Batch } from '../../src/types/brewing';
+import type { User } from '../types/auth.js';
+import type { Batch } from '../types/brewing.js';
 
 export interface AIServiceConfig {
   apiKey: string;

@@ -110,27 +110,13 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose, batchId }) => {
           {showConversations && (
             <div className="w-1/3 border-r flex flex-col">
               <div className="p-4 border-b">
-                <div className="space-y-2">
-                  <button
-                    onClick={() => {
-                      console.log('API_BASE_URL:', 'http://localhost:8080/api');
-                      fetch('http://localhost:8080/api/health')
-                        .then(res => res.json())
-                        .then(data => console.log('Health check:', data))
-                        .catch(err => console.error('Health check failed:', err));
-                    }}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm"
-                  >
-                    Test API
-                  </button>
-                  <button
-                    onClick={handleCreateConversation}
-                    className="w-full bg-brewing-amber hover:bg-brewing-copper text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-                  >
-                    <Plus size={16} />
-                    New Chat
-                  </button>
-                </div>
+                <button
+                  onClick={handleCreateConversation}
+                  className="w-full bg-brewing-amber hover:bg-brewing-copper text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                >
+                  <Plus size={16} />
+                  New Chat
+                </button>
               </div>
               
               <div className="flex-1 overflow-y-auto">

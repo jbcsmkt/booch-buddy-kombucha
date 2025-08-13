@@ -1,7 +1,7 @@
 import express from 'express';
 import { aiService } from '../services/aiService';
 import { authenticateToken } from '../middleware/auth';
-import type { AuthenticatedRequest } from '../middleware/auth';
+import type { AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Chat with AI assistant
-router.post('/chat', async (req: AuthenticatedRequest, res) => {
+router.post('/chat', async (req: AuthRequest, res) => {
   try {
     const { message, conversationHistory, batchId } = req.body;
     
@@ -47,7 +47,7 @@ router.post('/chat', async (req: AuthenticatedRequest, res) => {
 });
 
 // Generate brewing tips for a specific batch
-router.post('/tips/:batchId', async (req: AuthenticatedRequest, res) => {
+router.post('/tips/:batchId', async (req: AuthRequest, res) => {
   try {
     const { batchId } = req.params;
 
@@ -69,6 +69,7 @@ router.post('/tips/:batchId', async (req: AuthenticatedRequest, res) => {
       progressPercentage: 65,
       startPH: 4.5,
       startBrix: 8.2,
+      userId: req.user!.id,
     };
 
     const tips = await aiService.generateBrewingTips(mockBatchData);
@@ -84,7 +85,7 @@ router.post('/tips/:batchId', async (req: AuthenticatedRequest, res) => {
 });
 
 // Troubleshoot a batch issue
-router.post('/troubleshoot/:batchId', async (req: AuthenticatedRequest, res) => {
+router.post('/troubleshoot/:batchId', async (req: AuthRequest, res) => {
   try {
     const { batchId } = req.params;
     const { issue } = req.body;
@@ -110,6 +111,7 @@ router.post('/troubleshoot/:batchId', async (req: AuthenticatedRequest, res) => 
       progressPercentage: 65,
       startPH: 4.5,
       startBrix: 8.2,
+      userId: req.user!.id,
     };
 
     const advice = await aiService.troubleshootBatch(mockBatchData, issue);
@@ -125,7 +127,7 @@ router.post('/troubleshoot/:batchId', async (req: AuthenticatedRequest, res) => 
 });
 
 // Check AI service status
-router.get('/status', async (req: AuthenticatedRequest, res) => {
+router.get('/status', async (req: AuthRequest, res) => {
   try {
     const isConfigured = aiService.isConfigured();
     
@@ -145,4 +147,4 @@ router.get('/status', async (req: AuthenticatedRequest, res) => {
   }
 });
 
-export { router as aiRoutes };
+export default router;

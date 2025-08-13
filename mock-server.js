@@ -13,7 +13,7 @@ const PORT = 5000;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5176', 'http://localhost:5177', 'http://localhost:5178', 'http://localhost:5180'],
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5176', 'http://localhost:5177', 'http://localhost:5178', 'http://localhost:5180', 'http://localhost:5188'],
   credentials: true
 }));
 
@@ -933,10 +933,62 @@ app.get('/api/intervals/batch/:batchId', (req, res) => {
 });
 
 // In-memory interval storage
-let mockIntervals = [];
+let mockIntervals = [
+  {
+    id: 1,
+    batch_id: 1,
+    recorded_at: '2025-08-12',
+    ph_level: 4.2,
+    brix_level: 8.5,
+    temperature: 72.0,
+    taste_notes: 'Slightly sweet, good carbonation building',
+    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: 2,
+    batch_id: 1,
+    recorded_at: '2025-08-13',
+    ph_level: 3.8,
+    brix_level: 6.2,
+    temperature: 74.0,
+    taste_notes: 'More tart, carbonation increasing',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 3,
+    batch_id: 2,
+    recorded_at: '2025-08-12',
+    ph_level: 3.9,
+    brix_level: 7.8,
+    temperature: 73.5,
+    taste_notes: 'Good balance, progressing well',
+    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  }
+];
 
 // In-memory AI analysis storage
-let mockAIAnalyses = [];
+let mockAIAnalyses = [
+  {
+    id: 1,
+    batch_id: 1,
+    insights: 'pH levels are progressing well from 4.2 to 3.8. Brix reduction indicates active fermentation. Temperature is optimal for continued fermentation.',
+    recommendations: ['Continue monitoring daily', 'Check for proper carbonation development', 'Consider taste testing in 2-3 days'],
+    health_score: 88,
+    analyzed_data: { ph_level: 3.8, brix_level: 6.2, temperature: 74.0 },
+    analyzed_at: new Date().toISOString(),
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 2,
+    batch_id: 2,
+    insights: 'Single data point shows healthy pH of 3.9 and good sugar content at 7.8 Brix. Temperature is ideal for fermentation.',
+    recommendations: ['Add second measurement tomorrow', 'Monitor carbonation levels', 'Check SCOBY formation'],
+    health_score: 85,
+    analyzed_data: { ph_level: 3.9, brix_level: 7.8, temperature: 73.5 },
+    analyzed_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  }
+];
 
 // In-memory photo storage
 let mockPhotos = [];
@@ -1008,6 +1060,32 @@ app.put('/api/intervals/:id', (req, res) => {
   console.log('=== END PUT intervals ===\n');
   
   res.json(updatedInterval);
+});
+
+// Delete interval
+app.delete('/api/intervals/:id', (req, res) => {
+  console.log('\n=== DELETE /api/intervals/:id ===');
+  const intervalId = parseInt(req.params.id);
+  console.log('Deleting interval ID:', intervalId);
+  
+  const intervalIndex = mockIntervals.findIndex(interval => interval.id === intervalId);
+  
+  if (intervalIndex === -1) {
+    console.log('Interval not found');
+    return res.status(404).json({ error: 'Interval not found' });
+  }
+  
+  // Remove the interval
+  const deletedInterval = mockIntervals.splice(intervalIndex, 1)[0];
+  
+  console.log('Deleted interval:', JSON.stringify(deletedInterval, null, 2));
+  console.log('Total intervals remaining:', mockIntervals.length);
+  console.log('=== END DELETE intervals ===\n');
+  
+  res.json({ 
+    message: 'Interval deleted successfully',
+    deleted_interval: deletedInterval
+  });
 });
 
 app.post('/api/ai/analyze-progress/:batchId', (req, res) => {

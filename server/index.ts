@@ -12,6 +12,7 @@ import intervalRoutes from './routes/intervals.js';
 import measurementRoutes from './routes/measurements.js';
 import recipeRoutes from './routes/recipes.js';
 import equipmentRoutes from './routes/equipment.js';
+import aiRoutes from './routes/ai.js';
 
 // Load environment variables
 dotenv.config();
@@ -63,6 +64,7 @@ app.use('/api/intervals', intervalRoutes);
 app.use('/api/measurements', measurementRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/equipment', equipmentRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -84,8 +86,8 @@ async function startServer() {
     // Test database connection
     const dbConnected = await testConnection();
     if (!dbConnected) {
-      console.error('Failed to connect to database. Exiting...');
-      process.exit(1);
+      console.warn('⚠️  Database connection failed - server will start in limited mode');
+      console.warn('⚠️  To enable full functionality, please install and start MySQL');
     }
 
     app.listen(PORT, () => {
@@ -93,6 +95,9 @@ async function startServer() {
       console.log(`📱 Health check: http://localhost:${PORT}/api/health`);
       console.log(`🔒 Authentication: http://localhost:${PORT}/api/auth`);
       console.log(`🍺 Batches API: http://localhost:${PORT}/api/batches`);
+      if (!dbConnected) {
+        console.log(`⚠️  Database features unavailable - MySQL not connected`);
+      }
     });
   } catch (error) {
     console.error('Failed to start server:', error);
